@@ -42,7 +42,7 @@ adc7_val = ADC->ADDR[7] & 0x0000FFFF;
 sprintf(adc7_val_s, "%d", adc7_val);
 printS_5x7(4+5*10, 40, " ");
 printS_5x7(4+5*10, 40, adc7_val_s);
-	if (adc7_val > 2457){
+	if (adc7_val > 2458){
 		Buzzer_beep(BUZZER_BEEP_TIME);
 	}
 	else{

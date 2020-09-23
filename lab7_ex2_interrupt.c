@@ -4,7 +4,7 @@
 
 #define BUZZER_BEEP_TIME 3
 #define BUZZER_BEEP_DELAY 200000
-#define COMPARE_VALUE 2497
+#define COMPARE_VALUE 2458
 
 void System_Config(void);
 void SPI3_Config(void);
