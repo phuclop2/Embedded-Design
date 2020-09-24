@@ -6,7 +6,6 @@
 #define BUZZER_BEEP_DELAY 20000
 
 void EINT1_IRQHandler(void);
-void TIMER0_IRQHandler(void);
 void Buzzer_beep(int beep_time);
 
 unsigned int counter = 0;
