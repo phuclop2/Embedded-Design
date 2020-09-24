@@ -7,7 +7,7 @@
 #define TRIGGER_TIME 3
 #define TIMER0_COUNTS 100000
 #define TIMER1_COUNTS 40000
-#define TIMER2_COUNTS 5000
+#define TIMER2_COUNTS 4000
 #define TIMER3_COUNTS 1000
 
 void System_Config(void);
@@ -19,9 +19,9 @@ void TIMER3_Config(void); // TIMER3 is for Normal-freq
 //void SysTick_Config(void); // SysTick is for High-freq
 void GPIO_Config(void);
 void EINT0_IRQHandler(void);
-void Low_freq(void);
-void Normal_freq(void);
-void High_freq(void);
+void Low_freq(int run_time);
+void Normal_freq(int run_time);
+void High_freq(int run_time);
 void VeryHigh_freq(void);
 
 
@@ -84,9 +84,14 @@ while(1){
     else if(dis_val >= 25 && dis_val < 40){
         Normal_freq();
     }
+    else if(dis_val >= 10 && dis_val < 25){
+        High_freq();
+    }
+    else {
+        VeryHigh_freq();
+    }
     
-     
-    CLK_SysTickDelay(50000);
+    CLK_SysTickDelay(5000);
 }
 }
 
@@ -229,7 +234,7 @@ TIMER0->TCSR &= ~(0x01ul << 24);
 //TDR to be updated continuously while timer counter is counting
 TIMER0->TCSR |= (0x01ul << 16);
 
-//TimeOut = 100ms --> Counter's TCMPR = 100ms / (1/(1M Hz) = 100000
+//TimeOut = 1 s --> Counter's TCMPR = 1 s / (1/(1M Hz) = 1000000
 TIMER0->TCMPR = TIMER0_COUNTS - 1;
 
 //start counting
@@ -280,7 +285,7 @@ TIMER2->TCSR &= ~(0x01ul << 24);
 //TDR to be updated continuously while timer counter is counting
 TIMER2->TCSR |= (0x01ul << 16);
 
-//TimeOut = 5 ms (200 Hz) --> Counter's TCMPR = 5 ms / (1/(1 MHz) = 5000
+//TimeOut = 4 ms (250 Hz) --> Counter's TCMPR = 10 ms / (1/(1 MHz) = 4000
 TIMER2->TCMPR = TIMER2_COUNTS - 1;
 
 //start counting
@@ -306,7 +311,7 @@ TIMER3->TCSR &= ~(0x01ul << 24);
 //TDR to be updated continuously while timer counter is counting
 TIMER3->TCSR |= (0x01ul << 16);
 
-//TimeOut = 1 ms (1000 Hz) --> Counter's TCMPR = 1 ms / (1/(1 MHz) = 1000
+//TimeOut = 1 ms (1500 Hz) --> Counter's TCMPR = 1 ms / (1/(1 MHz) = 1000
 TIMER3->TCMPR = TIMER3_COUNTS - 1;
 
 //start counting
@@ -333,19 +338,26 @@ PB->PMD |= (0x01ul << 22);
 //GPIO initialization end ---------------------- 
 }
 
-void Low_freq(void){
-PB->DOUT ^= (1 << 11);
-PC->DOUT ^= (1 << 12);
-while(!(TIMER2->TDR == TIMER2_COUNTS - 1)); // set TIMER2
+void Low_freq(int run_time){
+    int i;
+    for(i=0;i<(run_time);i++){
+        PB->DOUT ^= (1 << 11);
+        PC->DOUT ^= (1 << 12);
+        while(!(TIMER2->TDR == TIMER2_COUNTS - 1)); // set TIMER2
+    }
 }
 
-void Normal_freq(void){
-PB->DOUT ^= (1 << 11);
-PC->DOUT ^= (1 << 12);
-while(!(TIMER3->TDR == TIMER3_COUNTS - 1)); // set TIMER2
+void Normal_freq(int run_time){
+    int i;
+    for(i=0;i<(run_time);i++){
+        PB->DOUT ^= (1 << 11);
+        PC->DOUT ^= (1 << 12);
+        while(!(TIMER3->TDR == TIMER3_COUNTS - 1)); // set TIMER3
+    }
+
 }
 
-void High_freq(void){
+void High_freq(int run_time){
 PB->DOUT ^= (1 << 11);
 // set SysTick here
 }
