@@ -3,13 +3,13 @@
 #include "NUC100Series.h"
 #include "lab5_ex2.h"
 #define BUZZER_BEEP_TIME 1
-#define BUZZER_BEEP_DELAY 200000
-
-#define TIMER0_COUNTS 5
+#define BUZZER_BEEP_DELAY 20000
 
 void EINT1_IRQHandler(void);
 void TIMER0_IRQHandler(void);
 void Buzzer_beep(int beep_time);
+
+unsigned int counter = 0;
 
 int main(void)
 {
@@ -25,46 +25,8 @@ CLK->CLKSEL0 &= (~(0x07ul << 0));
 //clock frequency division: 1
 CLK->CLKDIV &= ~0x0Ful;
     
-//TM0 Clock selection and configuration
-CLK->CLKSEL1 &= ~(0x07ul << 8);
-CLK->CLKSEL1 |= (0x02ul << 8);
-CLK->APBCLK |= (0x01ul << 2);
-    
 SYS_LockReg(); // Lock protected registers
-    
-//Timer 0 initialization start--------------
-TIMER0->TCSR &= ~(0xFFul << 0);
-//set PRESCALE = 0
 
-//reset Timer 0
-TIMER0->TCSR |= (0x01ul << 26);
-    
-TIMER0->TCSR |= (0x01ul << 24);
-//CTB bit is set to 1, TDR is 24-bit up counter value 
-
-//TDR to be updated continuously while timer counter is counting
-TIMER0->TCSR |= (0x01ul << 16);
-
-//Time = 5
-TIMER0->TCMPR = TIMER0_COUNTS;
-
-TIMER0->TCSR |= (0x01ul << 29);
-//Timer Interrupt enable
-
-TIMER0->TEXCON |= (0x01ul << 7); //enable de_bounce
-TIMER0->TEXCON &= ~(0x01ul << 0); //falling-edge 
-
-//start counting
-TIMER0->TCSR |= (0x01ul << 30);
-//Timer 0 initialization end----------------
-
-//GPIOA.5: output push-pull
-PA->PMD &= ~(0x03ul << 10);
-PA->PMD |= (0x01ul << 10);
-PA->DOUT &= ~(0x01ul << 5);
-
-PB->PMD &= (~(0x03ul << 16));
-SYS->GPB_MFP |= (0x01ul << 8); //Alternative function for GB.8
     
 //LED display via GPIO-C12 to indicate main program execution
 PC->PMD &= (~(0x03ul << 24));
@@ -80,43 +42,23 @@ PB->IEN |= (1ul << 15);
 //NVIC interrupt configuration for GPIO-B15 interrupt source
 NVIC->ISER[0] |= 1ul<<3;
 NVIC->IP[0] &= (~(3ul<<30));
-NVIC->IP[0] |= (1ul<<30);
-
-//NVIC Interrupt configuration for TIMER0 interrupt source
-NVIC->ISER[0] |= 1ul<<8;
-NVIC->IP[2] &= (~(3ul<<6)); 
 
 while(1){
-    //while(TIMER0->TDR == TIMER0_COUNTS){
-     //   PC->DOUT ^= 1 << 12;
-   // }
+    if(counter == 5){
+            PC->DOUT ^= 1 << 12; // LED5
+            CLK_SysTickDelay(100000);
+    }
 }
 }
 
 // Interrupt Service Rountine of GPIO port B pin 15
 void EINT1_IRQHandler(void){
+
+counter = counter + 1;
     
 Buzzer_beep(BUZZER_BEEP_TIME);
-PA->DOUT = (1 << 5);
-CLK_SysTickDelay(20000);
-PA->DOUT = (0 << 5);
+    
 PB->ISRC |= (1ul << 15);
-    
-}
-
-
-void TIMER0_IRQHandler(void){
-    
-Buzzer_beep(BUZZER_BEEP_TIME);
-    
-for(int i = 0; i < 6; i++){
-    PC->DOUT ^= 1 << 12;
-    CLK_SysTickDelay(50000);
-    }
-
-//reset Timer 0
-TIMER0->TCSR |= (0x01ul << 26);
-TIMER0->TISR |= (1ul << 0);
 }
 
 void Buzzer_beep(int beep_time){
