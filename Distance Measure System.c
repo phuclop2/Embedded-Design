@@ -7,6 +7,8 @@
 #define TRIGGER_TIME 3
 #define TIMER0_COUNTS 100000
 #define TIMER1_COUNTS 40000
+#define TIMER2_COUNTS 5000
+#define TIMER3_COUNTS 1000
 
 void System_Config(void);
 void SPI3_Config(void);
@@ -14,7 +16,7 @@ void TIMER0_Config(void); // TIMER0 is for TRIGGER
 void TIMER1_Config(void); // TIMER1 is for measure Echo signal
 void TIMER2_Config(void); // TIMER2 is for Low-freq
 void TIMER3_Config(void); // TIMER3 is for Normal-freq
-void SysTick_Config(void); // SysTick is for High-freq
+//void SysTick_Config(void); // SysTick is for High-freq
 void GPIO_Config(void);
 void EINT0_IRQHandler(void);
 void Low_freq(void);
@@ -75,6 +77,15 @@ while(1){
     sprintf(val_s, "%d", dis_val);
     printS_5x7(4+5*10, 10, " ");
     printS_5x7(4+5*10, 10, val_s);
+    
+    if(dis_val >= 40){
+        Low_freq();
+    }
+    else if(dis_val >= 25 && dis_val < 40){
+        Normal_freq();
+    }
+    
+     
     CLK_SysTickDelay(50000);
 }
 }
@@ -255,24 +266,52 @@ void TIMER2_Config (void){
 //Timer 2 initialization start--------------
 
 // set PRESCALE = 12
-TIMER1->TCSR &= ~(0xFFul << 0);
-TIMER1->TCSR |= (11ul << 0);
+TIMER2->TCSR &= ~(0xFFul << 0);
+TIMER2->TCSR |= (11ul << 0);
 
 //reset Timer 1
-TIMER1->TCSR |= (0x01ul << 26);
+TIMER2->TCSR |= (0x01ul << 26);
 
 //define Timer 1 operation mode: one-shot
-TIMER1->TCSR &= ~(0x03ul << 27);
-TIMER1->TCSR |= (0x00ul << 27);
-TIMER1->TCSR &= ~(0x01ul << 24);
+TIMER2->TCSR &= ~(0x03ul << 27);
+TIMER2->TCSR |= (0x00ul << 27);
+TIMER2->TCSR &= ~(0x01ul << 24);
 
 //TDR to be updated continuously while timer counter is counting
-TIMER1->TCSR |= (0x01ul << 16);
+TIMER2->TCSR |= (0x01ul << 16);
 
-//TimeOut = 40 ms (25 Hz) --> Counter's TCMPR = 40 ms / (1/(1 MHz) = 40000
-TIMER1->TCMPR = TIMER1_COUNTS - 1;
+//TimeOut = 5 ms (200 Hz) --> Counter's TCMPR = 5 ms / (1/(1 MHz) = 5000
+TIMER2->TCMPR = TIMER2_COUNTS - 1;
 
-//Timer 1 initialization end----------------
+//start counting
+TIMER2->TCSR |= (0x01ul << 30);
+//Timer 2 initialization end----------------
+}
+
+void TIMER3_Config (void){
+//Timer 3 initialization start--------------
+
+// set PRESCALE = 12
+TIMER3->TCSR &= ~(0xFFul << 0);
+TIMER3->TCSR |= (11ul << 0);
+
+//reset Timer 1
+TIMER3->TCSR |= (0x01ul << 26);
+
+//define Timer 1 operation mode: one-shot
+TIMER3->TCSR &= ~(0x03ul << 27);
+TIMER3->TCSR |= (0x00ul << 27);
+TIMER3->TCSR &= ~(0x01ul << 24);
+
+//TDR to be updated continuously while timer counter is counting
+TIMER3->TCSR |= (0x01ul << 16);
+
+//TimeOut = 1 ms (1000 Hz) --> Counter's TCMPR = 1 ms / (1/(1 MHz) = 1000
+TIMER3->TCMPR = TIMER3_COUNTS - 1;
+
+//start counting
+TIMER3->TCSR |= (0x01ul << 30);
+//Timer 2 initialization end----------------
 }
 
 void GPIO_Config(void){
@@ -296,12 +335,14 @@ PB->PMD |= (0x01ul << 22);
 
 void Low_freq(void){
 PB->DOUT ^= (1 << 11);
-// set TIMER2
+PC->DOUT ^= (1 << 12);
+while(!(TIMER2->TDR == TIMER2_COUNTS - 1)); // set TIMER2
 }
 
 void Normal_freq(void){
 PB->DOUT ^= (1 << 11);
-// set TIMER3
+PC->DOUT ^= (1 << 12);
+while(!(TIMER3->TDR == TIMER3_COUNTS - 1)); // set TIMER2
 }
 
 void High_freq(void){
