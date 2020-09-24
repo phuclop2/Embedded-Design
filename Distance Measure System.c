@@ -20,10 +20,11 @@ void LCD_data(unsigned char temp);
 void LCD_clear(void);
 void LCD_SetAddress(uint8_t PageAddr, uint8_t ColumnAddr);
 
+
 int main(void)
 {
-uint32_t TDR_val;
-char TDR_val_s[4]="0000";
+uint32_t TDR_val, dis_val;
+char val_s[3]="000";
     
 System_Config();
 SPI3_Config();
@@ -52,25 +53,25 @@ LCD_clear();
 //LCD static content
 //--------------------------------
 
-printS_5x7(2, 10, "TDR value:");
+printS_5x7(2, 10, "Value:");
 
 while(1){
     while(!(TIMER0->TDR == TIMER0_COUNTS - 1));
         PA->DOUT = (1 << 5);
         CLK_SysTickDelay(2);
         PA->DOUT = (0 << 5); 
-    CLK_SysTickDelay(10000);
+    CLK_SysTickDelay(1000); // wait till the Echo signal is triggered HIGH
 
     while(TIMER1->TCSR & (1ul << 25)); // wait until counter TIMER1 is stopping (CACT)
     // while(TIMER1->TCSR & (1ul << 30)); // wait until counter TIMER1 is stopping (CEN)
     //while(PB->ISRC & (1ul << 14)); // wait till an interrupt is not generating at GB.14
     
-    TDR_val = TIMER1->TDR & 0x0000FFFF;
-    CLK_SysTickDelay(50000);
+    TDR_val = TIMER1->TDR & 0x00FFFFFF;
+    dis_val = (TDR_val * 34) / 2000;
     LCD_clear();
-    sprintf(TDR_val_s, "%d", TDR_val);
+    sprintf(val_s, "%d", dis_val);
     printS_5x7(4+5*10, 10, " ");
-    printS_5x7(4+5*10, 10, TDR_val_s);
+    printS_5x7(4+5*10, 10, val_s);
     CLK_SysTickDelay(50000);
 }
 }
@@ -81,6 +82,7 @@ while(1){
 //Interrupt Service Rountine of GPIO port B pin 14
 void EINT0_IRQHandler(void){
 
+    
 TIMER1->TCSR |= (0x01ul << 26); // reset the counter again after every time the interrupt is triggered
     
 //start counting
@@ -91,7 +93,7 @@ while(PB->PIN & (1ul << 14)); //wait till GPB.14 is back to 0, while GPB.14 is s
 //stop counting
 TIMER1->TCSR &= ~(1ul << 30); // stop counter
 //TDR will not be updated continuously while timer counter is counting
-TIMER1->TCSR &= ~(0x01ul << 16); // stop update new value to TDR
+//TIMER1->TCSR &= ~(0x01ul << 16); // stop update new value to TDR
     
 PB->ISRC |= (1ul << 14); // clear pending to GB.14 Interrrupt
 }
