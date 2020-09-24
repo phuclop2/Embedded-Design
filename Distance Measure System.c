@@ -4,14 +4,23 @@
 #include "NUC100Series.h"
 #include "LCD.h"
 
+#define TRIGGER_TIME 3
 #define TIMER0_COUNTS 100000
 #define TIMER1_COUNTS 40000
 
 void System_Config(void);
 void SPI3_Config(void);
-void TIMER0_Config(void);
-void TIMER1_Config(void);
+void TIMER0_Config(void); // TIMER0 is for TRIGGER
+void TIMER1_Config(void); // TIMER1 is for measure Echo signal
+void TIMER2_Config(void); // TIMER2 is for Low-freq
+void TIMER3_Config(void); // TIMER3 is for Normal-freq
+void SysTick_Config(void); // SysTick is for High-freq
+void GPIO_Config(void);
 void EINT0_IRQHandler(void);
+void Low_freq(void);
+void Normal_freq(void);
+void High_freq(void);
+void VeryHigh_freq(void);
 
 
 void LCD_start(void);
@@ -30,13 +39,7 @@ System_Config();
 SPI3_Config();
 TIMER0_Config();
 TIMER1_Config();    
-
-//GPIO initialization start --------------------
-//GPIOA.5: output push-pull
-PA->PMD &= ~(0x03ul << 10);
-PA->PMD |= (0x01ul << 10);
-PA->DOUT &= ~(0x01ul << 5);
-//GPIO initialization end ----------------------
+GPIO_Config();
     
 //GPIO Interrupt configuration. GPIO-B14 is the interrupt source
 PB->PMD &= (~(0x03ul << 28)); // input
@@ -53,12 +56,12 @@ LCD_clear();
 //LCD static content
 //--------------------------------
 
-printS_5x7(2, 10, "Value:");
+printS_5x7(2, 10, "Distance:");
 
 while(1){
     while(!(TIMER0->TDR == TIMER0_COUNTS - 1));
         PA->DOUT = (1 << 5);
-        CLK_SysTickDelay(2);
+        CLK_SysTickDelay(TRIGGER_TIME); // hardware dependant
         PA->DOUT = (0 << 5); 
     CLK_SysTickDelay(1000); // wait till the Echo signal is triggered HIGH
 
@@ -144,10 +147,24 @@ void System_Config (void){
 SYS_UnlockReg(); // Unlock protected registers
 //System initialization start-------------------
 //enable clock sources
-CLK->PWRCON |= (1 << 0);
+//HXT (12 MHz), LIRC (10 kHz)
+CLK->PWRCON |= (1 << 0); 
 while(!(CLK->CLKSTATUS & (1 << 0)));
-//Select CPU clock
+CLK->PWRCON |= (1ul << 3);
+while(!(CLK->CLKSTATUS & (1ul << 3)));
+    
+//PLL configuration starts
+CLK->PLLCON &= ~(1ul<<19); //0: PLL input is HXT 12MHz (default). 1: PLL input is HIRC 22MHz
+CLK->PLLCON &= ~(1ul<<16); //0: PLL in normal mode. 1: PLL in power-down mode (default)
+CLK->PLLCON &= (~(0x01FFul << 0));
+CLK->PLLCON |= 48; //frequency: 50 MHz
+CLK->PLLCON &= ~(1ul<<18); //0: enable PLL clock out. 1: disable PLL clock (default)
+while(!(CLK->CLKSTATUS & (1ul << 2)));
+//PLL configuration ends
+    
+//clock source selection
 CLK->CLKSEL0 &= (~(0x07ul << 0));
+CLK->CLKSEL0 |= (0x02ul << 0);
 //CPU clock frequency divider
 CLK->CLKDIV &= (~(0x0Ful));
 //System initialization end---------------------
@@ -157,12 +174,10 @@ CLK->APBCLK |= 1ul << 15;
     
 //TM0 Clock selection and configuration
 CLK->CLKSEL1 &= ~(0x07ul << 8);
-CLK->CLKSEL1 |= (0x02ul << 8);
 CLK->APBCLK |= (0x01ul << 2);
     
 //TM1 Clock selection and configuration
 CLK->CLKSEL1 &= ~(0x07ul << 12); 
-CLK->CLKSEL1 |= (0x02ul << 12);
 CLK->APBCLK |= (0x01ul << 3);
 
 SYS_LockReg(); // Lock protected registers
@@ -182,14 +197,14 @@ SPI3->CNTRL &= ~(3ul << 8); //00: one transmit/receive word will be executed in 
 SPI3->CNTRL &= ~(31ul << 3); //Transmit/Receive bit length
 SPI3->CNTRL |= 9ul << 3; //9: 9 bits transmitted/received per data transfer
 SPI3->CNTRL |= (1ul << 2); //1: Transmit at negative edge of SPI CLK
-SPI3->DIVIDER = 0; // SPI clock divider. SPI clock = HCLK / ((DIVIDER+1)*2). HCLK = 12 MHz
+SPI3->DIVIDER = 0; // SPI clock divider. SPI clock = HCLK / ((DIVIDER+1)*2). HCLK = 50 MHz
 }
 
 void TIMER0_Config (void){
 //Timer 0 initialization start--------------
 TIMER0->TCSR &= ~(0xFFul << 0);
 TIMER0->TCSR |= (11ul << 0);
-//set PRESCALE = 11
+//set PRESCALE = 12
 
 //reset Timer 0
 TIMER0->TCSR |= (0x01ul << 26);
@@ -234,5 +249,68 @@ TIMER1->TCSR |= (0x01ul << 16);
 TIMER1->TCMPR = TIMER1_COUNTS - 1;
 
 //Timer 1 initialization end----------------
+}
+
+void TIMER2_Config (void){
+//Timer 2 initialization start--------------
+
+// set PRESCALE = 12
+TIMER1->TCSR &= ~(0xFFul << 0);
+TIMER1->TCSR |= (11ul << 0);
+
+//reset Timer 1
+TIMER1->TCSR |= (0x01ul << 26);
+
+//define Timer 1 operation mode: one-shot
+TIMER1->TCSR &= ~(0x03ul << 27);
+TIMER1->TCSR |= (0x00ul << 27);
+TIMER1->TCSR &= ~(0x01ul << 24);
+
+//TDR to be updated continuously while timer counter is counting
+TIMER1->TCSR |= (0x01ul << 16);
+
+//TimeOut = 40 ms (25 Hz) --> Counter's TCMPR = 40 ms / (1/(1 MHz) = 40000
+TIMER1->TCMPR = TIMER1_COUNTS - 1;
+
+//Timer 1 initialization end----------------
+}
+
+void GPIO_Config(void){
+//GPIO initialization start --------------------
+
+//GPIOA.5: output push-pull
+PA->PMD &= ~(0x03ul << 10);
+PA->PMD |= (0x01ul << 10);
+PA->DOUT &= ~(0x01ul << 5);
+    
+//LED5 display via GPIO-C12 
+PC->PMD &= (~(0x03ul << 24));
+PC->PMD |= (0x01ul << 24);
+//BUZZER port B pin 11
+    
+PB->PMD &= (~(0x03ul << 22));
+PB->PMD |= (0x01ul << 22);    
+
+//GPIO initialization end ---------------------- 
+}
+
+void Low_freq(void){
+PB->DOUT ^= (1 << 11);
+// set TIMER2
+}
+
+void Normal_freq(void){
+PB->DOUT ^= (1 << 11);
+// set TIMER3
+}
+
+void High_freq(void){
+PB->DOUT ^= (1 << 11);
+// set SysTick here
+}
+
+void VeryHigh_freq(void){
+PB->DOUT ^= (1 << 11);
+CLK_SysTickDelay(2000);
 }
 //------------------------------------------- main.c CODE ENDS ---------------------------------------------------------------------------
