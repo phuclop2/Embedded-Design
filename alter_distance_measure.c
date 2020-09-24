@@ -4,11 +4,10 @@
 #include "NUC100Series.h"
 #include "LCD.h"
 
-#define TRIGGER_TIME 3
-#define TIMER0_COUNTS 100000
-#define TIMER1_COUNTS 40000
-#define TIMER2_COUNTS 4000
-#define TIMER3_COUNTS 1000
+#define TIMER0_COUNTS 10
+#define TIMER1_COUNTS ??
+#define TIMER2_COUNTS ??
+#define TIMER3_COUNTS ??
 
 void System_Config(void);
 void SPI3_Config(void);
@@ -19,9 +18,9 @@ void TIMER3_Config(void); // TIMER3 is for Normal-freq
 //void SysTick_Config(void); // SysTick is for High-freq
 void GPIO_Config(void);
 void EINT0_IRQHandler(void);
-void Low_freq();
-void Normal_freq();
-void High_freq();
+void Low_freq(int run_time);
+void Normal_freq(int run_time);
+void High_freq(int run_time);
 void VeryHigh_freq(void);
 
 
@@ -61,10 +60,13 @@ LCD_clear();
 printS_5x7(2, 10, "Distance:");
 
 while(1){
-    while(!(TIMER0->TDR == TIMER0_COUNTS - 1));
-        PA->DOUT = (1 << 5);
-        CLK_SysTickDelay(TRIGGER_TIME); // hardware dependant
-        PA->DOUT = (0 << 5); 
+
+    PA->DOUT |= (1ul << 5);
+    //start counting
+    TIMER0->TCSR |= (0x01ul << 30);
+    while(TIMER0->TCSR & (1ul << 25)); // wait until counter TIMER0 is stopping (CACT)
+    PA->DOUT &= ~(0ul << 5);
+
     CLK_SysTickDelay(1000); // wait till the Echo signal is triggered HIGH
 
     while(TIMER1->TCSR & (1ul << 25)); // wait until counter TIMER1 is stopping (CACT)
@@ -74,7 +76,7 @@ while(1){
     TDR_val = TIMER1->TDR & 0x00FFFFFF;
     dis_val = (TDR_val * 34) / 2000;
     LCD_clear(); // must have some code to represent the distance in sequence like in Door Lock
-    sprintf(val_s, "%d", dis_val);
+    sprintf(val_s, "%d", dis_val); 
     printS_5x7(4+5*10, 10, " ");
     printS_5x7(4+5*10, 10, val_s);
     
@@ -101,7 +103,6 @@ while(1){
 //Interrupt Service Rountine of GPIO port B pin 14
 void EINT0_IRQHandler(void){
 
-    
 TIMER1->TCSR |= (0x01ul << 26); // reset the counter again after every time the interrupt is triggered
     
 //start counting
@@ -235,18 +236,15 @@ TIMER0->TCSR |= (0x01ul << 26);
 
 //define Timer 0 operation mode
 TIMER0->TCSR &= ~(0x03ul << 27);
-TIMER0->TCSR |= (0x01ul << 27);
-//set periodic mode 
+TIMER0->TCSR |= (0x00ul << 27);
+//set one-shot mode 
 TIMER0->TCSR &= ~(0x01ul << 24);
 
 //TDR to be updated continuously while timer counter is counting
 TIMER0->TCSR |= (0x01ul << 16);
 
-//TimeOut = 1 s --> Counter's TCMPR = 1 s / (1/(1M Hz) = 1000000
+//TimeOut = 10 us --> Counter's TCMPR = 10u s / (1/(1M Hz) = 10
 TIMER0->TCMPR = TIMER0_COUNTS - 1;
-
-//start counting
-TIMER0->TCSR |= (0x01ul << 30);
 
 //Timer 0 initialization end----------------
 }
@@ -264,6 +262,7 @@ TIMER1->TCSR |= (0x01ul << 26);
 //define Timer 1 operation mode: one-shot
 TIMER1->TCSR &= ~(0x03ul << 27);
 TIMER1->TCSR |= (0x00ul << 27);
+
 TIMER1->TCSR &= ~(0x01ul << 24);
 
 //TDR to be updated continuously while timer counter is counting
@@ -278,7 +277,7 @@ TIMER1->TCMPR = TIMER1_COUNTS - 1;
 void TIMER2_Config (void){
 //Timer 2 initialization start--------------
 
-// set PRESCALE = 12
+// set PRESCALE = 11
 TIMER2->TCSR &= ~(0xFFul << 0);
 TIMER2->TCSR |= (11ul << 0);
 
@@ -288,6 +287,7 @@ TIMER2->TCSR |= (0x01ul << 26);
 //define Timer 2 operation mode: periodic
 TIMER2->TCSR &= ~(0x03ul << 27);
 TIMER2->TCSR |= (0x01ul << 27);
+
 TIMER2->TCSR &= ~(0x01ul << 24);
 
 //TDR to be updated continuously while timer counter is counting
@@ -304,16 +304,16 @@ TIMER2->TCSR |= (0x01ul << 30);
 void TIMER3_Config (void){
 //Timer 3 initialization start--------------
 
-// set PRESCALE = 11
+// set PRESCALE = 12
 TIMER3->TCSR &= ~(0xFFul << 0);
 TIMER3->TCSR |= (11ul << 0);
 
-//reset Timer 3
+//reset Timer 1
 TIMER3->TCSR |= (0x01ul << 26);
 
-//define Timer 3 operation mode: periodic
+//define Timer 1 operation mode: periodic 
 TIMER3->TCSR &= ~(0x03ul << 27);
-TIMER3->TCSR |= (0x01ul << 27);
+TIMER3->TCSR |= (0x00ul << 27);
 TIMER3->TCSR &= ~(0x01ul << 24);
 
 //TDR to be updated continuously while timer counter is counting
@@ -346,18 +346,18 @@ PB->PMD |= (0x01ul << 22);
 //GPIO initialization end ---------------------- 
 }
 
-void Low_freq(){
+void Low_freq(int run_time){
     int i;
-    for(i=0;i<6;i++){
+    for(i=0;i<(run_time);i++){
         PB->DOUT ^= (1 << 11);
         PC->DOUT ^= (1 << 12);
         while(!(TIMER2->TDR == TIMER2_COUNTS - 1)); // set TIMER2
     }
 }
 
-void Normal_freq(){
+void Normal_freq(int run_time){
     int i;
-    for(i=0;i<6;i++){
+    for(i=0;i<(run_time);i++){
         PB->DOUT ^= (1 << 11);
         PC->DOUT ^= (1 << 12);
         while(!(TIMER3->TDR == TIMER3_COUNTS - 1)); // set TIMER3
@@ -365,7 +365,7 @@ void Normal_freq(){
 
 }
 
-void High_freq(){
+void High_freq(int run_time){
 PB->DOUT ^= (1 << 11);
 // set SysTick here
 }
