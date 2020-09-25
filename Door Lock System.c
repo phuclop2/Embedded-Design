@@ -1,5 +1,5 @@
 //------------------------------------------- main.c CODE STARTS ---------------------------------------------------------------------------
-// Assignment 1: Door Lock System - Bui Thanh Long code
+// Assignment 1 - Door Lock System - Bui Thanh Long code
 #include <stdio.h>
 #include "NUC100Series.h"
 #include "MCU_init.h"
