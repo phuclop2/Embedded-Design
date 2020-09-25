@@ -1,6 +1,4 @@
 //------------------------------------------- main.c CODE STARTS ---------------------------------------------------------------------------
-// Assignment 1 - Door Lock System - Origin: Bui Thanh Long code - still need optimize
-#include <stdio.h>
 #include <stdio.h>
 #include "NUC100Series.h"
 #include "MCU_init.h"
@@ -85,7 +83,7 @@ while(1){
 		case LOGIN:
 			// login starts here
 			printS_5x7(2,0,"Input password:");
-			printS(2,35,"------");
+			printS_5x7(2,35,"- - - - - -");
 			for(i = 0;i < 6; i++){
 				while(pressed_password == 0){
 					pressed_password = KeyPadScanning();
@@ -120,7 +118,7 @@ while(1){
 		case UPDATE1:
 			// input old password
 			printS_5x7(2,0,"Input old password:");
-			printS(2,35,"------");
+			printS_5x7(2,35,"- - - - - -");
 			for(i = 0;i < 6; i++){
 				while(pressed_password == 0){
 					pressed_password = KeyPadScanning();
@@ -149,7 +147,7 @@ while(1){
 		case UPDATE2:
 			// input new password
 			printS_5x7(2,0,"Input new password:");
-			printS(2,35,"------");
+			printS_5x7(2,35,"- - - - - -");
 		  for(i = 0;i < 6; i++){
 				while(pressed_password == 0){
 					pressed_password = KeyPadScanning();
@@ -170,7 +168,7 @@ while(1){
 		case SUCCESS_PASS_CHANGE:
 			// successful password change
 			printS_5x7(2,20,"Your key has been changed");
-			printS(17,30,"* * * * * *");
+			printS_5x7(17,30,"* * * * * *");
 			printS_5x7(35,50,"Thank you!");
 			for (i = 0; i < 6; i++){
 				CLK_SysTickDelay(2000000);
@@ -201,9 +199,9 @@ while(1){
 // User Defined Functions
 //------------------------------------------------------------------------------------------------------------------------------------
 void flash_passord(char digit[2], int16_t i) {
-    printS(2 + i*8,35,digit);
+    printS_5x7(2 + i*10,35,digit);
     CLK_SysTickDelay(200000);
-    printS(2 + i*8,35,"*");
+    printS_5x7(2 + i*10,35,"*");
 }
 
 int check_valid_password(char input[6], char password[6]) {
