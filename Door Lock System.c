@@ -1,4 +1,6 @@
 //------------------------------------------- main.c CODE STARTS ---------------------------------------------------------------------------
+// Assignment 1 - Door Lock System - Origin: Bui Thanh Long code - still need optimize
+#include <stdio.h>
 #include <stdio.h>
 #include "NUC100Series.h"
 #include "MCU_init.h"
