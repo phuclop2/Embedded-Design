@@ -1,4 +1,5 @@
 //------------------------------------------- main.c CODE STARTS ---------------------------------------------------------------------------
+// Assignment 1: Door Lock System - Bui Thanh Long code
 #include <stdio.h>
 #include "NUC100Series.h"
 #include "MCU_init.h"
@@ -158,7 +159,6 @@ while(1){
 				pressed_password = 0;
 				CLK_SysTickDelay(2000000);
 			}	
-			// save in register ??? 
             update_password(new_password_str, system_password_str);
             clear_password(new_password_str);
 			LCD_clear();
@@ -168,7 +168,7 @@ while(1){
 		case SUCCESS_PASS_CHANGE:
 			// successful password change
 			printS_5x7(2,20,"Your key has been changed");
-			printS_5x7(17,30,"* * * * * *");
+			printS_5x7(33,35,"* * * * * *");
 			printS_5x7(35,50,"Thank you!");
 			for (i = 0; i < 6; i++){
 				CLK_SysTickDelay(2000000);
